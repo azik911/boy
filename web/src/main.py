@@ -2,6 +2,9 @@
 import os
 from pydantic import BaseModel
 import secrets
+from datetime import datetime
+from zoneinfo import ZoneInfo
+MSK = ZoneInfo("Europe/Moscow")
 
 from datetime import datetime, timedelta
 from io import BytesIO
