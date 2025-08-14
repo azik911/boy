@@ -121,3 +121,35 @@ ON CONFLICT (slug) DO UPDATE
 SET title = EXCLUDED.title, url = EXCLUDED.url, active = EXCLUDED.active;
 
 COMMIT;
+-- users: кто запускал бота (если уже есть — пропусти)
+CREATE TABLE IF NOT EXISTS users (
+  telegram_id BIGINT PRIMARY KEY,
+  first_seen  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- персонализация short_links: к какому пользователю привязана короткая ссылка
+ALTER TABLE short_links
+  ADD COLUMN IF NOT EXISTS user_id BIGINT;
+
+-- уникальные клики по пользователю и дню
+CREATE TABLE IF NOT EXISTS clicks (
+  id            BIGSERIAL PRIMARY KEY,
+  short_link_id BIGINT NOT NULL REFERENCES short_links(id) ON DELETE CASCADE,
+  user_id       BIGINT NOT NULL,
+  day           DATE   NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- в сутки один клик на пару (ссылка, пользователь)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_clicks_unique_day
+  ON clicks(short_link_id, user_id, day);
+
+-- ускорим выборки по ссылке и пользователю
+CREATE INDEX IF NOT EXISTS ix_clicks_link ON clicks(short_link_id);
+CREATE INDEX IF NOT EXISTS ix_clicks_user ON clicks(user_id);
+
+-- если у тебя есть offers и short_links.offer_id — сделай уникальность на пару (offer,user)
+-- чтобы /s/new не плодил дубликаты для одного пользователя:
+-- CREATE UNIQUE INDEX IF NOT EXISTS uq_short_links_offer_user
+--   ON short_links(offer_id, user_id) WHERE user_id IS NOT NULL;
+
